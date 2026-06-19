@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -54,7 +54,7 @@ class TopBar extends ConsumerWidget implements PreferredSizeWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image.asset(
-                        'assets/images/skorio-logo.png',
+                        'assets/images/sports_tournament_logo_green.png',
                         width: 28,
                         height: 28,
                         fit: BoxFit.contain,
@@ -156,3 +156,4 @@ class TopBar extends ConsumerWidget implements PreferredSizeWidget {
   @override
   Size get preferredSize => const Size.fromHeight(60.0);
 }
+

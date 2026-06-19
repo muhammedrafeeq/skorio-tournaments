@@ -1,4 +1,4 @@
-import 'dart:ui';
+﻿import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -155,7 +155,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
                           child: Image.asset(
-                            'assets/images/skorio-logo.png',
+                            'assets/images/sports_tournament_logo_green.png',
                             width: 48,
                             height: 48,
                             fit: BoxFit.contain,
@@ -786,3 +786,4 @@ class _PinDigitBoxState extends State<_PinDigitBox> {
     );
   }
 }
+
