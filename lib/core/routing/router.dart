@@ -50,12 +50,19 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final authState = ref.read(authProvider);
       final isLoggedIn = authState.value != null;
-      final goingToLogin = state.matchedLocation == '/login';
+      final loc = state.matchedLocation;
+      final goingToLogin = loc == '/login';
+      // Redirect root to login
+      if (loc == '/') return isLoggedIn ? '/tournaments/dashboard' : '/login';
       if (!isLoggedIn && !goingToLogin) return '/login';
       if (isLoggedIn && goingToLogin) return '/tournaments/dashboard';
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (_, __) => '/login',
+      ),
       GoRoute(
         path: '/login',
         pageBuilder: (ctx, s) => _slidePage(s, const LoginScreen()),
@@ -71,14 +78,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         ],
       ),
       GoRoute(path: '/notifications', pageBuilder: (ctx, s) => _slidePage(s, const NotificationSettingsScreen())),
+      // Static /tournaments/* routes must come BEFORE /tournaments/:id
       GoRoute(path: '/tournaments/create', pageBuilder: (ctx, s) => _slidePage(s, const CreateTournamentScreen())),
+      GoRoute(path: '/tournaments/join',   pageBuilder: (ctx, s) => _slidePage(s, const JoinTournamentScreen())),
       GoRoute(
         path: '/tournaments/:id',
         pageBuilder: (ctx, s) => _slidePage(s, TournamentDetailScreen(tournamentId: s.pathParameters['id'] ?? '')),
-      ),
-      GoRoute(
-        path: '/tournaments/join',
-        pageBuilder: (ctx, s) => _slidePage(s, const JoinTournamentScreen()),
       ),
       GoRoute(
         path: '/players/:name',
