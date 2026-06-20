@@ -584,7 +584,10 @@ class CricketScoringNotifier extends Notifier<CricketScoringState> {
 
     // Check innings end
     final newWickets = innings.wickets + (isWicket ? 1 : 0);
-    final maxWickets = innings.batters.length - 1; // all out when last man stands alone
+    // fall back to config playersPerSide if no players registered
+    final maxWickets = innings.batters.length > 1
+        ? innings.batters.length - 1
+        : ms.config.playersPerSide - 1;
     final newRuns = innings.runs + ballRuns;
     bool inningsEnds = newWickets >= maxWickets ||
         newCompletedOvers >= ms.config.maxOvers ||
