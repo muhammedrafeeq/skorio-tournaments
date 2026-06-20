@@ -586,11 +586,143 @@ class _SetupScreen extends ConsumerStatefulWidget {
   ConsumerState<_SetupScreen> createState() => _SetupScreenState();
 }
 
+// Cricket player roles
+enum CricketRole { bat, bowl, ar, wk }
+
+extension CricketRoleX on CricketRole {
+  String get label {
+    switch (this) {
+      case CricketRole.bat:  return 'BAT';
+      case CricketRole.bowl: return 'BOWL';
+      case CricketRole.ar:   return 'AR';
+      case CricketRole.wk:   return 'WK';
+    }
+  }
+  String get full {
+    switch (this) {
+      case CricketRole.bat:  return 'Batsman';
+      case CricketRole.bowl: return 'Bowler';
+      case CricketRole.ar:   return 'All-Rounder';
+      case CricketRole.wk:   return 'Wicket-Keeper';
+    }
+  }
+  Color get color {
+    switch (this) {
+      case CricketRole.bat:  return Colors.blue;
+      case CricketRole.bowl: return Colors.orange;
+      case CricketRole.ar:   return Colors.purple;
+      case CricketRole.wk:   return Colors.green;
+    }
+  }
+}
+
+class _CricketPlayer {
+  final String name;
+  final int jersey;
+  CricketRole role;
+  _CricketPlayer({required this.name, required this.jersey, this.role = CricketRole.bat});
+}
+
 class _SetupScreenState extends ConsumerState<_SetupScreen> {
   int _maxOvers = 20;
   int _maxOversPerBowler = 4;
   String? _battingTeamId;
   String? _bowlingTeamId;
+
+  // per-team player lists built from roster, editable roles
+  Map<String, List<_CricketPlayer>> _squadMap = {};
+
+  void _initSquads(TournamentTeam home, TournamentTeam away) {
+    for (final team in [home, away]) {
+      if (!_squadMap.containsKey(team.id)) {
+        _squadMap[team.id] = team.players.map((p) {
+          CricketRole role = CricketRole.bat;
+          final pos = p.position.toLowerCase();
+          if (pos.contains('bowl')) { role = CricketRole.bowl; }
+          else if (pos.contains('all') || pos.contains('ar')) { role = CricketRole.ar; }
+          else if (pos.contains('wk') || pos.contains('keeper') || pos.contains('wicket')) { role = CricketRole.wk; }
+          return _CricketPlayer(name: p.name, jersey: p.jerseyNumber, role: role);
+        }).toList();
+      }
+    }
+  }
+
+  void _addPlayer(String teamId) {
+    final nameCtrl = TextEditingController();
+    final jerseyCtrl = TextEditingController();
+    CricketRole role = CricketRole.bat;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          backgroundColor: SkorioColors.surface,
+          title: const Text('Add Player', style: TextStyle(color: Colors.white)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameCtrl,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Player Name',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true, fillColor: Colors.white10,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: jerseyCtrl,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Jersey #',
+                  labelStyle: const TextStyle(color: Colors.white54),
+                  filled: true, fillColor: Colors.white10,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Align(alignment: Alignment.centerLeft,
+                child: Text('Role', style: TextStyle(color: Colors.white54, fontSize: 12))),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                children: CricketRole.values.map((r) => ChoiceChip(
+                  label: Text(r.full, style: TextStyle(fontSize: 12,
+                      color: role == r ? Colors.white : Colors.white70)),
+                  selected: role == r,
+                  selectedColor: r.color.withValues(alpha: 0.7),
+                  backgroundColor: Colors.white10,
+                  onSelected: (_) => setS(() => role = r),
+                )).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            FilledButton(
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                setState(() {
+                  _squadMap[teamId] ??= [];
+                  _squadMap[teamId]!.add(_CricketPlayer(
+                    name: name,
+                    jersey: int.tryParse(jerseyCtrl.text) ?? 0,
+                    role: role,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -611,6 +743,7 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
 
     _battingTeamId ??= match.homeTeamId;
     _bowlingTeamId ??= match.awayTeamId;
+    _initSquads(homeTeam, awayTeam);
 
     return Scaffold(
       backgroundColor: SkorioColors.baseBg,
@@ -626,6 +759,8 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
                 Text('Match Setup', style: SkorioTextStyles.headlineMd.copyWith(color: Colors.white)),
               ]),
               const SizedBox(height: 24),
+
+              // ── Overs Settings ───────────────────────────────────────────
               Text('OVERS SETTINGS', style: SkorioTextStyles.labelSm.copyWith(
                   color: Colors.white30, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
@@ -643,6 +778,8 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+
+              // ── Toss ────────────────────────────────────────────────────
               Text('TOSS — WHO BATS FIRST?', style: SkorioTextStyles.labelSm.copyWith(
                   color: Colors.white30, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
               const SizedBox(height: 12),
@@ -686,7 +823,15 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
                   ),
                 );
               }).toList()),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
+
+              // ── Squad Builder ────────────────────────────────────────────
+              for (final team in [homeTeam, awayTeam]) ...[
+                _buildSquadSection(team),
+                const SizedBox(height: 16),
+              ],
+
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -698,11 +843,19 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
                   ),
                   onPressed: _battingTeamId == null ? null : () {
                     final battingTeam = tournament.teams.firstWhere(
-                      (t) => t.id == _battingTeamId,
-                      orElse: () => homeTeam);
+                      (t) => t.id == _battingTeamId, orElse: () => homeTeam);
                     final bowlingTeam = tournament.teams.firstWhere(
-                      (t) => t.id == _bowlingTeamId,
-                      orElse: () => awayTeam);
+                      (t) => t.id == _bowlingTeamId, orElse: () => awayTeam);
+
+                    // Convert _CricketPlayer → TournamentPlayer for the provider
+                    TournamentPlayer _toPlayer(_CricketPlayer p) => TournamentPlayer(
+                      id: p.name, name: p.name,
+                      jerseyNumber: p.jersey, position: p.role.label,
+                    );
+
+                    final battingPlayers = (_squadMap[battingTeam.id] ?? []).map(_toPlayer).toList();
+                    final bowlingPlayers = (_squadMap[bowlingTeam.id] ?? []).map(_toPlayer).toList();
+
                     ref.read(cricketScoringProvider.notifier).setupMatch(
                       config: CricketMatchConfig(
                         maxOvers: _maxOvers,
@@ -710,17 +863,132 @@ class _SetupScreenState extends ConsumerState<_SetupScreen> {
                       ),
                       battingTeamId: battingTeam.id,
                       bowlingTeamId: bowlingTeam.id,
-                      battingPlayers: battingTeam.players,
-                      bowlingPlayers: bowlingTeam.players,
+                      battingPlayers: battingPlayers,
+                      bowlingPlayers: bowlingPlayers,
                     );
                   },
                   child: const Text('Start Match', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
                 ),
               ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSquadSection(TournamentTeam team) {
+    final squad = _squadMap[team.id] ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(team.name.toUpperCase(),
+                style: SkorioTextStyles.labelSm.copyWith(
+                    color: Colors.white30, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _addPlayer(team.id),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: SkorioColors.secondary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: SkorioColors.secondary.withValues(alpha: 0.4)),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.add, color: SkorioColors.secondary, size: 14),
+                  const SizedBox(width: 4),
+                  Text('Add Player', style: SkorioTextStyles.labelSm.copyWith(
+                      color: SkorioColors.secondary, fontSize: 11)),
+                ]),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (squad.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: const Text('No players added. Tap + Add Player.',
+                style: TextStyle(color: Colors.white24, fontSize: 12),
+                textAlign: TextAlign.center),
+          )
+        else
+          GlassCard(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Column(
+              children: squad.asMap().entries.map((entry) {
+                final i = entry.key;
+                final p = entry.value;
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(
+                        color: i < squad.length - 1 ? Colors.white10 : Colors.transparent)),
+                  ),
+                  child: Row(
+                    children: [
+                      // Jersey
+                      Container(
+                        width: 28, height: 28,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.06),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Center(child: Text('${p.jersey}',
+                            style: const TextStyle(color: Colors.white54, fontSize: 11))),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: Text(p.name,
+                          style: SkorioTextStyles.labelMd.copyWith(color: Colors.white))),
+                      // Role chips
+                      Wrap(
+                        spacing: 4,
+                        children: CricketRole.values.map((r) {
+                          final sel = p.role == r;
+                          return GestureDetector(
+                            onTap: () => setState(() => p.role = r),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: sel ? r.color.withValues(alpha: 0.25) : Colors.white.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: sel ? r.color.withValues(alpha: 0.7) : Colors.white12,
+                                ),
+                              ),
+                              child: Text(r.label, style: TextStyle(
+                                color: sel ? r.color : Colors.white30,
+                                fontSize: 10, fontWeight: FontWeight.w700,
+                              )),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      // Remove
+                      GestureDetector(
+                        onTap: () => setState(() => _squadMap[team.id]!.removeAt(i)),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.close, color: Colors.white24, size: 16),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+      ],
     );
   }
 
