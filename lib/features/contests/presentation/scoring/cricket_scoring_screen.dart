@@ -46,12 +46,18 @@ class _CricketScoringScreenState extends ConsumerState<CricketScoringScreen>
     final ms = state.matchState!;
     final innings = ms.currentInningsState;
 
-    // Post-frame dialogs for new bowler / new batsman
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (state.needsNewBowler) {
-        _showSelectBowlerDialog(context, ms);
-      } else if (state.needsNewBatsman) {
-        _showSelectBatsmanDialog(context, ms);
+    // Listen for bowler/batsman selection triggers — fires only on state change, not every rebuild
+    ref.listen<CricketScoringState>(cricketScoringProvider, (prev, next) {
+      if (next.matchState == null) return;
+      final newMs = next.matchState!;
+      if (next.needsNewBowler && !(prev?.needsNewBowler ?? false)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showSelectBowlerDialog(context, newMs);
+        });
+      } else if (next.needsNewBatsman && !(prev?.needsNewBatsman ?? false)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _showSelectBatsmanDialog(context, newMs);
+        });
       }
     });
 
